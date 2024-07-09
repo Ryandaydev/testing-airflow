@@ -1,4 +1,4 @@
-"""FastAPI program - Chapter 6"""
+"""FastAPI program - Chapter 9"""
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -94,7 +94,7 @@ def read_players(
 @app.get(
     "/v0/players/{player_id}",
     response_model=schemas.Player,
-    summary="Get one player using the Player ID, which is an internal to SWC",
+    summary="Get one player using the Player ID, which is internal to SWC",
     description="If you have an SWC Player ID of a player from another API call such as v0_get_players, you can call this API using the player ID",
     response_description="One NFL player",
     operation_id="v0_get_players_by_player_id",
