@@ -1,7 +1,11 @@
 import datetime
 from airflow.decorators import dag
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.http.operators.http import HttpOperator  # Change the import from SimpleHttpOperator to HttpOperator
+from airflow.providers.http.operators.http import HttpOperator  
+from airflow.operators.python import PythonOperator
+from airflow.providers.sqlite.operators.sqlite import SqliteOperator
+import json
+import sqlite3
 import logging
 
 def health_check_response(response):
@@ -9,7 +13,16 @@ def health_check_response(response):
     logging.info(f"Response body: {response.text}")
     return response.status_code == 200 and response.json() == {"message": "API health check successful"}
 
-@dag(start_date=datetime.datetime(2021, 1, 1), schedule_interval="@daily")
+def insert_update_player_data(**context):
+    # Extract the data from XCom
+    player_data = context['task_instance'].xcom_pull(task_ids='api_player_query')
+    player_dictionary = json.loads(player_data)  
+    logging.info(f"Player data from xcom: {player_dictionary}")
+    #Use the SQLite operator
+    #pick up from here, use the database local_data.db and "player" table.
+
+
+@dag(start_date=datetime.datetime(2024, 8, 7), schedule_interval=None, catchup=False)  
 def recurring_player_api_insert_update_dag():
     api_health_check_task = HttpOperator( 
         task_id='check_api_health_check_endpoint',
@@ -28,8 +41,16 @@ def recurring_player_api_insert_update_dag():
         headers={"Content-Type": "application/json"},
     )
 
+    # Task to transform and upsert data into SQLite
+    player_upsert_task = PythonOperator(
+        task_id='player_upsert',
+        python_callable=insert_update_player_data,
+        provide_context=True,
+    )
+
+
     # Define the task dependencies
-    api_health_check_task >> api_player_query_task
+    api_health_check_task >> api_player_query_task >> player_upsert_task
 
 # Instantiate the DAG
 dag_instance = recurring_player_api_insert_update_dag()
